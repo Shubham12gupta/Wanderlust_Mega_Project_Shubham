@@ -1,22 +1,23 @@
 #!/bin/bash
 
-# Set the Instance ID and path to the .env file
-INSTANCE_ID="i-030da7d31a1dbbffc"
+# DigitalOcean Worker Public IP
+PUBLIC_IP="134.209.146.20"
 
-# Retrieve the public IP address of the specified EC2 instance
-ipv4_address=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+# Path to the frontend .env file
+FILE="../frontend/.env.docker"
 
-# Path to the .env file
-file_to_find="../frontend/.env.docker"
+if [ ! -f "$FILE" ]; then
+    echo "ERROR: $FILE not found."
+    exit 1
+fi
 
-# Check the current VITE_API_PATH in the .env file
-current_url=$(cat $file_to_find)
+CURRENT_URL=$(grep "^VITE_API_PATH=" "$FILE")
 
-# Update the .env file if the IP address has changed
-if [[ "$current_url" != "VITE_API_PATH=\"http://${ipv4_address}:31100\"" ]]; then
-    if [ -f $file_to_find ]; then
-        sed -i -e "s|VITE_API_PATH.*|VITE_API_PATH=\"http://${ipv4_address}:31100\"|g" $file_to_find
-    else
-        echo "ERROR: File not found."
-    fi
+NEW_URL="VITE_API_PATH=\"http://${PUBLIC_IP}:31100\""
+
+if [ "$CURRENT_URL" != "$NEW_URL" ]; then
+    sed -i "s|^VITE_API_PATH=.*|$NEW_URL|g" "$FILE"
+    echo "Updated VITE_API_PATH to http://${PUBLIC_IP}:31100"
+else
+    echo "VITE_API_PATH already up-to-date."
 fi
