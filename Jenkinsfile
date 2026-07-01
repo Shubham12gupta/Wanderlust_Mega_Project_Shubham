@@ -1,6 +1,6 @@
 @Library('Shared') _
 pipeline {
-    agent {label 'any'}
+    agent any
     
     environment{
         SONAR_HOME = tool "Sonar"
@@ -44,7 +44,6 @@ pipeline {
                 }
             }
         }
-
         stage("OWASP: Dependency check"){
             steps{
                 script{
