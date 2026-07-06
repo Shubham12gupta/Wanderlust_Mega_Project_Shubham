@@ -1,0 +1,95 @@
+@Library('Shared') _
+
+pipeline {
+    agent any    
+
+    parameters {
+        string(name: 'FRONTEND_DOCKER_TAG', defaultValue: '', description: 'Frontend Docker Docker Tag')
+        string(name: 'BACKEND_DOCKER_TAG', defaultValue: '', description: 'Backend Docker Docker Tag')
+    }
+
+    stages {
+
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    if (!params.FRONTEND_DOCKER_TAG?.trim() || !params.BACKEND_DOCKER_TAG?.trim()) {
+                        error("FRONTEND_DOCKER_TAG and BACKEND_DOCKER_TAG are required.")
+                    }
+                }
+            }
+        }
+
+        stage('Workspace Cleanup') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Git Checkout') {
+            steps {
+                script {
+                    code_checkout(
+                        "https://github.com/Shubham12gupta/Wanderlust_Mega_Project_Shubham.git",
+                        "main"
+                    )
+                }
+            }
+        }
+
+        stage('Update Kubernetes Manifests') {
+            steps {
+                sh """
+                sed -i 's|image: shubham12gupta/wanderlust-backend-beta:.*|image: shubham12gupta/wanderlust-backend-beta:${params.BACKEND_DOCKER_TAG}|g' kubernetes/backend/deployment.yaml
+
+                sed -i 's|image: shubham12gupta/wanderlust-frontend-beta:.*|image: shubham12gupta/wanderlust-frontend-beta:${params.FRONTEND_DOCKER_TAG}|g' kubernetes/frontend/deployment.yaml
+                """
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh """
+                kubectl apply -f kubernetes/backend/
+                kubectl apply -f kubernetes/frontend/
+                """
+            }
+        }
+
+        stage('Wait for Rollout') {
+            steps {
+                sh """
+                kubectl rollout status deployment/backend-deployment -n backend
+                kubectl rollout status deployment/frontend-deployment -n frontend
+                """
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh """
+                kubectl get pods -A
+                kubectl get svc -A
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "=================================="
+            echo "Wanderlust Deployment Successful"
+            echo "=================================="
+        }
+
+        failure {
+            echo "=================================="
+            echo "Wanderlust Deployment Failed"
+            echo "=================================="
+        }
+
+        always {
+            cleanWs()
+        }
+    }
+}
